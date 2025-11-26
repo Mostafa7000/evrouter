@@ -29,10 +29,10 @@ public class OpenRouteServiceClient {
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
+        headers.setAccept(Collections.singletonList(MediaType.parseMediaType("application/geo+json")));
         headers.set("Authorization", apiKey);
 
-        String requestBody = String.format("{\"coordinates\":[[%s,%s],[%s,%s]],\"elevation\":\"true\"}",
+        String requestBody = String.format("{\"coordinates\":[[%s,%s],[%s,%s]],\"elevation\":true,\"format\":\"geojson\"}",
                 startLon, startLat, endLon, endLat);
 
         HttpEntity<String> entity = new HttpEntity<>(requestBody, headers);

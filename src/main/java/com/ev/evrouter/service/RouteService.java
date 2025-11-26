@@ -10,6 +10,8 @@ import com.ev.evrouter.repository.TripRepository;
 import com.ev.evrouter.util.EVCalculator;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.springframework.stereotype.Service;
+import java.util.ArrayList;
+import java.util.List;
 
 @Service
 public class RouteService {
@@ -30,8 +32,8 @@ public class RouteService {
 
             JsonNode summary = routeData.path("features").get(0).path("properties").path("summary");
             double distance = summary.path("distance").asDouble() / 1000;
-            double ascent = summary.path("ascent").asDouble();
-            double descent = summary.path("descent").asDouble();
+            double ascent = routeData.path("features").get(0).path("properties").path("ascent").asDouble();
+            double descent = routeData.path("features").get(0).path("properties").path("descent").asDouble();
 
             double energyRequired = EVCalculator.calculateConsumption(distance, ascent, descent, request.getConsumptionPerKm(), request.getVehicleMassKg());
             boolean canMakeIt = request.getBatteryCapacity() >= energyRequired;
@@ -48,8 +50,21 @@ public class RouteService {
             tripRepository.save(trip);
 
             PlanResponse response = new PlanResponse();
+            // Extract coordinates from GeoJSON and convert to List<double[]>
+            List<double[]> coordinates = new ArrayList<>();
+            JsonNode coordinatesNode = routeData.path("features").get(0).path("geometry").path("coordinates");
+            if (coordinatesNode.isArray()) {
+                for (JsonNode coordNode : coordinatesNode) {
+                    if (coordNode.isArray() && coordNode.size() >= 2) {
+                        double lon = coordNode.get(0).asDouble();
+                        double lat = coordNode.get(1).asDouble();
+                        coordinates.add(new double[]{lon, lat});
+                    }
+                }
+            }
+
             response.setVerdict(verdict);
-            response.setRoutePolyline(routeData.path("features").get(0).path("geometry").path("coordinates"));
+            response.setRoutePolyline(coordinates);
             response.setChargingStations(chargeMapClient.getChargingStations(routeData.path("bbox")));
             response.setDistance(distance);
             response.setEstimatedTime(summary.path("duration").asDouble());

@@ -8,7 +8,7 @@ import java.util.List;
 @Data
 public class PlanResponse {
     private String verdict;
-    private JsonNode routePolyline;
+    private List<double[]> routePolyline;
     private List<ChargingStation> chargingStations;
     private double distance;
     private double estimatedTime;
