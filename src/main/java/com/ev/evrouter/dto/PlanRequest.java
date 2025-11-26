@@ -10,4 +10,5 @@ public class PlanRequest {
     private double endLon;
     private double batteryCapacity;
     private double consumptionPerKm;
+    private double vehicleMassKg;
 }

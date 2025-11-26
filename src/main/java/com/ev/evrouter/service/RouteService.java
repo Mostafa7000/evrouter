@@ -7,6 +7,7 @@ import com.ev.evrouter.exception.RoutePlanningException;
 import com.ev.evrouter.io.OpenChargeMapClient;
 import com.ev.evrouter.io.OpenRouteServiceClient;
 import com.ev.evrouter.repository.TripRepository;
+import com.ev.evrouter.util.EVCalculator;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.springframework.stereotype.Service;
 
@@ -16,7 +17,6 @@ public class RouteService {
     private final OpenRouteServiceClient routeServiceClient;
     private final OpenChargeMapClient chargeMapClient;
     private final TripRepository tripRepository;
-    private static final double ENERGY_PENALTY_PER_METER = 0.1;
 
     public RouteService(OpenRouteServiceClient routeServiceClient, OpenChargeMapClient chargeMapClient, TripRepository tripRepository) {
         this.routeServiceClient = routeServiceClient;
@@ -28,10 +28,12 @@ public class RouteService {
         try {
             JsonNode routeData = routeServiceClient.getRoute(request.getStartLat(), request.getStartLon(), request.getEndLat(), request.getEndLon());
 
-            double distance = routeData.path("features").get(0).path("properties").path("summary").path("distance").asDouble() / 1000;
-            double ascent = routeData.path("features").get(0).path("properties").path("ascent").asDouble();
+            JsonNode summary = routeData.path("features").get(0).path("properties").path("summary");
+            double distance = summary.path("distance").asDouble() / 1000;
+            double ascent = summary.path("ascent").asDouble();
+            double descent = summary.path("descent").asDouble();
 
-            double energyRequired = (distance * request.getConsumptionPerKm()) + (ascent * ENERGY_PENALTY_PER_METER);
+            double energyRequired = EVCalculator.calculateConsumption(distance, ascent, descent, request.getConsumptionPerKm(), request.getVehicleMassKg());
             boolean canMakeIt = request.getBatteryCapacity() >= energyRequired;
             String verdict = canMakeIt ? "You can make it to your destination without charging." : "You will need to charge your vehicle to reach your destination.";
 
@@ -50,7 +52,7 @@ public class RouteService {
             response.setRoutePolyline(routeData.path("features").get(0).path("geometry").path("coordinates"));
             response.setChargingStations(chargeMapClient.getChargingStations(routeData.path("bbox")));
             response.setDistance(distance);
-            response.setEstimatedTime(routeData.path("features").get(0).path("properties").path("summary").path("duration").asDouble());
+            response.setEstimatedTime(summary.path("duration").asDouble());
             response.setEnergyRequired(energyRequired);
 
             return response;

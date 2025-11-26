@@ -45,10 +45,13 @@ public class RouteServiceTest {
     private ObjectNode createMockRouteData() {
         ObjectMapper mapper = new ObjectMapper();
         ObjectNode routeData = mapper.createObjectNode();
-        ObjectNode summary = mapper.createObjectNode().put("distance", 250000).put("duration", 10800);
+        ObjectNode summary = mapper.createObjectNode()
+                .put("distance", 250000)
+                .put("duration", 10800)
+                .put("ascent", 500)
+                .put("descent", 300);
         ObjectNode properties = mapper.createObjectNode();
         properties.set("summary", summary);
-        properties.put("ascent", 500);
         ObjectNode geometry = mapper.createObjectNode();
         geometry.putArray("coordinates").addArray().add(0).add(0);
         ObjectNode feature = mapper.createObjectNode();
@@ -68,6 +71,7 @@ public class RouteServiceTest {
         request.setEndLon(9.9937);
         request.setBatteryCapacity(100.0);
         request.setConsumptionPerKm(0.2);
+        request.setVehicleMassKg(2000);
 
         ObjectNode routeData = createMockRouteData();
 
@@ -89,6 +93,7 @@ public class RouteServiceTest {
         request.setEndLon(9.9937);
         request.setBatteryCapacity(50.0);
         request.setConsumptionPerKm(0.2);
+        request.setVehicleMassKg(2000);
 
         ObjectNode routeData = createMockRouteData();
 
@@ -110,6 +115,7 @@ public class RouteServiceTest {
         request.setEndLon(9.9937);
         request.setBatteryCapacity(50.0);
         request.setConsumptionPerKm(0.2);
+        request.setVehicleMassKg(2000);
 
         when(routeServiceClient.getRoute(anyDouble(), anyDouble(), anyDouble(), anyDouble())).thenThrow(new RuntimeException("API error"));
 
