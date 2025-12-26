@@ -41,7 +41,7 @@ public class OpenRouteServiceClient {
             String response = restTemplate.postForObject(url, entity, String.class);
             ObjectMapper mapper = new ObjectMapper();
             JsonNode root = mapper.readTree(response);
-            if (root.has("features") && root.get("features").isArray() && root.get("features").size() > 0) {
+            if (root.has("features") && root.get("features").isArray() && !root.get("features").isEmpty()) {
                 return root;
             } else {
                 if (root.has("error")) {
