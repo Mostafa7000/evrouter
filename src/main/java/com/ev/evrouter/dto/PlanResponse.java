@@ -29,4 +29,13 @@ public class PlanResponse {
     private double estimatedTime;
     @Schema(description = "Total energy required for the trip in kWh", example = "35.2")
     private double energyRequired;
+    
+    @Schema(description = "Total elevation gain in meters", example = "250.5")
+    private double totalAscent;
+    
+    @Schema(description = "Total elevation loss in meters", example = "300.2")
+    private double totalDescent;
+    
+    @Schema(description = "Estimated remaining battery capacity on arrival in kWh", example = "25.5")
+    private double batteryOnArrival;
 }

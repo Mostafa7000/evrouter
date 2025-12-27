@@ -2,14 +2,18 @@ package com.ev.evrouter.io;
 
 import com.ev.evrouter.dto.ChargingStation;
 import com.ev.evrouter.dto.Connector;
+import com.ev.evrouter.util.PolylineEncoder;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import java.io.IOException;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -18,7 +22,6 @@ import java.util.Optional;
 public class OpenChargeMapClient {
 
     private final RestTemplate restTemplate;
-    private static final double BUFFER_KM = 5.0;
 
     @Value("${openchargemap.api.key}")
     private String apiKey;
@@ -27,29 +30,29 @@ public class OpenChargeMapClient {
         this.restTemplate = restTemplate;
     }
 
-    public List<ChargingStation> getChargingStations(JsonNode boundingBox) {
-        // Ensure the bbox is in the correct order: [minLon, minLat, maxLon, maxLat]
-        double minLon = boundingBox.get(0).asDouble();
-        double minLat = boundingBox.get(1).asDouble();
-        double maxLon = boundingBox.get(2).asDouble();
-        double maxLat = boundingBox.get(3).asDouble();
-        
-        // Increase the buffer distance to 10km for better coverage
-        double bufferKm = 10.0;
-        double latBuffer = bufferKm / 111.32;  // approximately 1 degree = 111.32 km
-        double lonBuffer = bufferKm / (111.32 * Math.cos(Math.toRadians((minLat + maxLat) / 2)));
-        
-        // Apply buffer to the bounding box with boundary checks
-        minLat = Math.max(-90, minLat - latBuffer);
-        minLon = Math.max(-180, minLon - lonBuffer);
-        maxLat = Math.min(90, maxLat + latBuffer);
-        maxLon = Math.min(180, maxLon + lonBuffer);
+    public List<ChargingStation> getChargingStations(List<double[]> routePoints) {
+        String encodedPolyline = PolylineEncoder.encode(routePoints);
 
-        String url = String.format("https://api.openchargemap.io/v3/poi/?output=json&boundingbox=(%f,%f),(%f,%f)&distanceunit=KM&maxresults=1000&key=%s",
-                minLat, minLon, maxLat, maxLon, apiKey);
+        // FIX: Build a URI object, NOT a String.
+        // Strings are treated as templates (expanding {}), URIs are treated as final.
+        URI uri = UriComponentsBuilder.fromUri(URI.create("https://api.openchargemap.io/v3/poi/"))
+                .queryParam("output", "json")
+                .queryParam("polyline", encodedPolyline)
+                .queryParam("distance", "5")
+                .queryParam("distanceunit", "KM")
+                .queryParam("maxresults", "100")
+                .queryParam("key", apiKey)
+                .build()
+                .toUri(); // <--- Important: Returns java.net.URI
+        String response;
+        try {
+            // Pass the URI object directly
+            response = restTemplate.getForObject(uri, String.class);
+        } catch (RestClientException e) {
+            throw new RuntimeException("Failed to parse charging station response", e);
+        }
 
         try {
-            String response = restTemplate.getForObject(url, String.class);
             ObjectMapper mapper = new ObjectMapper();
             JsonNode root = mapper.readTree(response);
             List<ChargingStation> stations = new ArrayList<>();
@@ -97,7 +100,7 @@ public class OpenChargeMapClient {
                             Connector connector = new Connector();
                             connector.setTitle(connection.path("ConnectionType").path("Title").asText(""));
                             connector.setSpeed(connection.path("Level").path("Title").asText(""));
-                            
+
                             // Set power in kilowatts (default to 0 if not available)
                             double powerKW = connection.path("PowerKW").asDouble(0);
                             // If PowerKW is 0, try to get it from the Level's PowerKW field
@@ -105,7 +108,7 @@ public class OpenChargeMapClient {
                                 powerKW = connection.path("Level").path("PowerKW").asDouble(0);
                             }
                             connector.setPowerKW(powerKW);
-                            
+
                             // Set quantity (default to 1 if not specified)
                             int quantity = connection.path("Quantity").asInt(1);
                             connector.setQuantity(quantity);

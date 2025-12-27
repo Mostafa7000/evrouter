@@ -1,6 +1,7 @@
 package com.ev.evrouter.service;
 
 import com.ev.evrouter.domain.Trip;
+import com.ev.evrouter.dto.ChargingStation;
 import com.ev.evrouter.dto.PlanRequest;
 import com.ev.evrouter.dto.PlanResponse;
 import com.ev.evrouter.exception.RoutePlanningException;
@@ -8,8 +9,10 @@ import com.ev.evrouter.io.OpenChargeMapClient;
 import com.ev.evrouter.io.OpenRouteServiceClient;
 import com.ev.evrouter.repository.TripRepository;
 import com.ev.evrouter.util.EVCalculator;
+import com.ev.evrouter.util.GeometryUtil;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.springframework.stereotype.Service;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -62,13 +65,30 @@ public class RouteService {
                     }
                 }
             }
+//            // 1. Get raw stations from the bounding box (keep this API call, it's efficient for fetching candidates)
+//            List<ChargingStation> allStations = chargeMapClient.getChargingStations(routeData.path("bbox"));
+//
+//            // 2. Filter them against the route path
+//            List<ChargingStation> validStations = allStations.stream()
+//                    .filter(station -> GeometryUtil.isNearRoute(
+//                            station.getLatitude(),
+//                            station.getLongitude(),
+//                            coordinates, // This is your 'routePolyline' list
+//                            5.0 // 20km buffer
+//                    ))
+//                    .toList();
 
+            // 3. Set the filtered list to the response
+            response.setChargingStations(chargeMapClient.getChargingStations(coordinates));
             response.setVerdict(verdict);
             response.setRoutePolyline(coordinates);
-            response.setChargingStations(chargeMapClient.getChargingStations(routeData.path("bbox")));
             response.setDistance(distance);
             response.setEstimatedTime(summary.path("duration").asDouble());
             response.setEnergyRequired(energyRequired);
+            response.setTotalAscent(ascent);
+            response.setTotalDescent(descent);
+            double remainingBattery = Math.max(0, request.getBatteryCapacity() - energyRequired);
+            response.setBatteryOnArrival(remainingBattery);
 
             return response;
         } catch (Exception e) {
